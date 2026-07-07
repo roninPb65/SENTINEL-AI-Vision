@@ -59,6 +59,9 @@
   /* IDLE */
   #idle { position:absolute; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--panel); gap:14px; }
   .idle-icon { font-size:2.8rem; opacity:.35; }
+  .spinner { display:none; width:34px; height:34px; border-radius:50%; border:3px solid rgba(0,255,136,.15); border-top-color:var(--accent); animation:spin .8s linear infinite; }
+  .spinner.active { display:block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
   #idle p { font-family:var(--mono); font-size:.8rem; color:var(--muted); letter-spacing:.05em; text-align:center; padding:0 20px; }
   .progress-wrap { width:260px; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
   .progress-bar { height:100%; background:var(--accent); width:0%; transition:width .3s; }
@@ -134,7 +137,8 @@
     <div class="video-status" id="videoStatus">CAMERA OFFLINE</div>
 
     <div id="idle">
-      <div class="idle-icon">🎯</div>
+      <div class="idle-icon" id="idleIcon">🎯</div>
+      <div class="spinner" id="spinner"></div>
       <p>SENTINEL AI SURVEILLANCE SYSTEM</p>
       <p id="modelStatus">Initialising neural network…</p>
       <div class="progress-wrap"><div class="progress-bar pulsing" id="progressBar"></div></div>
@@ -409,22 +413,46 @@ async function detect() {
 }
 
 // ── START CAMERA ──────────────────────────────────────────────────────────
+const idleIcon = document.getElementById('idleIcon');
+const spinner  = document.getElementById('spinner');
+
+function setStarting(text) {
+  idleIcon.style.display = 'none';
+  spinner.classList.add('active');
+  progressBar.parentElement.style.display = 'none';
+  modelStatus.textContent = text;
+}
+
 startBtn.addEventListener('click', async () => {
   startBtn.disabled = true;
+  startBtn.textContent = 'STARTING…';
+  setStarting('Requesting rear camera access…');
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: 'environment' } }
     });
     videoEl.srcObject = stream;
     await videoEl.play();
+    log('Camera stream active');
+
+    setStarting('Warming up detector — first pass can take a few seconds…');
+    videoStatus.textContent = '● INITIALISING…';
+
+    // Run (and time) the first inference pass before revealing the feed,
+    // since the model's first call is noticeably slower than subsequent ones.
+    try { await model.detect(videoEl); } catch (_) {}
+
     idleDiv.style.display = 'none';
     running = true;
     videoStatus.textContent = '● LIVE — ANALYSING';
-    log('Camera stream active');
     log('Real-time detection running');
     detect();
   } catch (err) {
     startBtn.disabled = false;
+    startBtn.textContent = 'ACTIVATE CAMERA';
+    spinner.classList.remove('active');
+    idleIcon.style.display = '';
+    progressBar.parentElement.style.display = '';
     modelStatus.textContent = 'Camera access denied';
     log('Camera error: ' + err.message);
   }

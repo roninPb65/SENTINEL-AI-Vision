@@ -390,7 +390,7 @@ async function detect() {
 
   let predictions = [];
   try {
-    predictions = await model.detect(videoEl);
+    predictions = await model.detect(videoEl, 40, 0.1);
   } catch(_) {}
 
   const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
@@ -440,7 +440,7 @@ startBtn.addEventListener('click', async () => {
 
     // Run (and time) the first inference pass before revealing the feed,
     // since the model's first call is noticeably slower than subsequent ones.
-    try { await model.detect(videoEl); } catch (_) {}
+    try { await model.detect(videoEl, 40, 0.1); } catch (_) {}
 
     idleDiv.style.display = 'none';
     running = true;
